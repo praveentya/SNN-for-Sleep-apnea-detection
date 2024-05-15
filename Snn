@@ -101,3 +101,121 @@ lr = 0.005
 tou_m = 15
 time = np.arange(1, T+1)
 accuracy = np.zeros((iterations))
+
+# Traing of model
+def train():
+
+   for iterate in range(iterations):
+      # Check the accuracy after training each classifier
+      correct = 0
+      val_predict = np.zeros((y_valid.shape))
+      for valid_sample in range(y_valid.shape[0]):
+        t_max = T*np.ones((num_class), dtype = np.int8) # default firing time: all neuron's maximum firing time at 100ms
+        max_state = np.zeros((num_class)) # max potential state of each output neuron
+        # Go through a time window, observe the firing history
+        for t in range(T):
+          for neuron in range(gauss_neurons):
+            Response[neuron] = K_res(t, x_valid[valid_sample, neuron])
+
+          #calculate PSP for output neuron
+          for out_id in range(num_class):
+            V[out_id, t] = np.matmul(Response,weight[:, out_id]) + V_rest
+
+        # Find the firing timing t_max
+        for out_id in range(num_class):
+          fire_time = np.where((V > threshold)[out_id, :])[0]
+          if len(fire_time) > 0: # set firing time between 1 to 100
+            max_state[out_id] = fire_time[0] + 1
+            t_max[out_id] = fire_time[0] + 1
+            t_max[out_id] = t_max[out_id].astype(int)
+          else:
+            max_state[out_id] = T
+
+          if t_max[out_id] < T: # if output neuron fires
+            V[out_id, t_max[out_id]:] = V[out_id, t_max[out_id]]*np.exp((time[t_max[out_id]:]-time[t_max[out_id]])/tou_m)
+        # We only need t_max for prediction?
+        pred_class = np.argmin(t_max)
+        val_predict[valid_sample] = pred_class
+      acc = accuracy_score(y_valid, val_predict)
+      print('Validation accuaracy at iteration {}: {}'.format(str(iterate+1), acc))
+
+      # Training
+      for sample in range(x_train.shape[0]):
+        t_max = 100*np.ones((num_class), dtype = np.int8)
+        max_state = np.zeros((num_class))
+        for t in range(T):
+          for neuron in range(gauss_neurons):
+            Response[neuron] = K_res(t, x_train[sample, neuron])
+          for out_id in range(num_class):
+            V[out_id, t] = np.matmul(Response,weight[:, out_id]) + V_rest
+
+        # Find the firing timing t_max
+        for out_id in range(num_class):
+          for timing in range(T):
+            if V[out_id, timing] >= threshold:
+              t_max[out_id] = timing
+              max_state[out_id] = V[out_id, timing]
+              break
+
+          if t_max[out_id] < T: # if output neuron fires
+            V[out_id, t_max[out_id]:] = V[out_id, t_max[out_id]]*np.exp((time[t_max[out_id]:]-time[t_max[out_id]])/tou_m)
+
+        pred_class = np.argmin(t_max)
+        # Modify weight when error occurs: stochastic learning
+        target = y_train[sample] # if target class != predict class, modify the weight
+        if pred_class != target:
+          for out_id in range(num_class):
+            if out_id == target:
+              if max_state[out_id] < threshold: # if the neuron supposed to fire did not fire
+                for neuron in range(gauss_neurons):
+                  if x_train[sample, neuron] < t_max[out_id]: # for input neuron that contribute to the firing
+                    # enhance the weight connection to the output neuron corresponding to target class
+                    weight[neuron, out_id] += lr*K_res(t_max[out_id], x_train[sample, neuron])
+
+            elif out_id != target:
+              if max_state[out_id] >= threshold: # if neuron shouldn't fired are erupted to fire
+                for neuron in range(gauss_neurons):
+                  if x_train[sample, neuron] < t_max[out_id]:
+                    # for input neuron contribute to the spike, inhibit the firing
+                    weight[neuron, out_id] -= lr*K_res(t_max[out_id], x_train[sample, neuron])
+
+        # Even if predict class is correct, if the output neuron other than target class is evoked,
+        # we should inhibit the firing of these neurons
+        elif pred_class == target:
+          for out_id in range(num_class):
+            if out_id != target:
+              if max_state[out_id] >= threshold:
+                for neuron in range(gauss_neurons):
+                  if x_train[sample, neuron] < t_max[out_id]:
+                    weight[neuron, out_id] -= lr*K_res(t_max[out_id], x_train[sample, neuron])
+
+      # Check training accuracy
+      train_predict = np.zeros(y_train.shape)
+      for train_sample in range(x_train.shape[0]):
+        t_max = T*np.ones((num_class), dtype = np.int8) # default firing time: all neuron's maximum firing time at 100ms
+        max_state = np.zeros((num_class)) # max potential state of each output neuron
+        # Go through a time window, observe the firing history
+        for t in range(T):
+          for neuron in range(gauss_neurons):
+            Response[neuron] = K_res(t, x_train[train_sample, neuron])
+
+          #calculate PSP for output neuron
+          for out_id in range(num_class):
+            V[out_id, t] = np.matmul(Response,weight[:, out_id]) + V_rest
+        # Find the firing timing t_max
+        for out_id in range(num_class):
+          for timing in range(T):
+            if V[out_id, timing] >= threshold:
+              t_max[out_id] = timing
+              max_state[out_id] = V[out_id, timing]
+              break
+
+          if t_max[out_id] < T: # if output neuron fires
+            V[out_id, t_max[out_id]:] = V[out_id, t_max[out_id]]*np.exp((time[t_max[out_id]:]-time[t_max[out_id]])/tou_m)
+        # We only need t_max for prediction?
+        pred_class = np.argmin(t_max)
+        train_predict[train_sample] = pred_class
+      acc = accuracy_score(y_train, train_predict)
+      print('Training accuaracy at iteration {}: {}'.format(str(iterate+1), acc))
+
+train()
