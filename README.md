@@ -6,9 +6,9 @@ Artificial neural networks that closely mimic natural neural networks are known 
 Learning real-world stimuli by single-spike coding and tempotron rule
 Work in spiking neurons:
 
-When a neuron accepts a stimulant from a pre-neuron, it's stored in the neuron. As long as the stimulation accessed exceeds a threshold of neuron, the neuron generates a spike that passes to the post-neuron. After the spike, the neuron "sleeps" for a while, and its storage value returns to rest potential(may be zero). The neuron stay silent for a period of time, within the interval don't accept any input stimulate.
+When a neuron accepts a stimulant from a pre-neuron, it's stored in the neuron. As long as the stimulation accessed exceeds a threshold of neuron, the neuron generates a spike that passes to the post-neuron. After the spike, the neuron "sleeps" for a while, and its storage value returns to rest potential(may be zero). The neuron stays silent for a period of time and, within the interval, doesn't accept any input stimulation.
 
-A neuron accepts all the input stimulated from pre-synaptic neurons, store the stimulates in its potential,
+A neuron accepts all the input stimulated from pre-synaptic neurons, stores the stimulates in its potential,
 
 P(t)=∑_(n=1)^M▒v_n  ∑_(t_n^i)▒〖S(t-t_n^i )+P_rest 〗
 
@@ -16,7 +16,9 @@ s: kernel function, value located in [0, 1]. The output of K represents the cont
 
 The latest spiking occurs in t_i, and then the contribution of that spiking during the current timestep t is s(t - n_i). 
 S(t-t_n^i )=P_0 [exp(-(t-t_n^i)/γ_a )-xp(-(t-t_n^i)/γ_b )]            
-![image](https://github.com/praveentya/SNN-for-Sleep-apnea-detection/assets/48126236/22937fc8-edc3-4e59-a870-050dec86b12c)
+![image](https://github.com/praveentya/SNN-for-Sleep-apnea-detection/assets/48126236/a77b4aa6-cb59-4b0e-8cc0-d1487a0a80ea)
+
+
 
 In this formula, after spiking occurs, the Kernel function becomes smaller as time goes forward, and the influence of spiking t_i decreases with time. tou_m and tou_s are hyperparameters.
 
@@ -30,4 +32,6 @@ In this simple implementation, two neurons are used to represent the two categor
 Model training: If the sample is category B and the output neuron A emits a pulse, the synaptic weight connected to this neuron A needs to update the weight. The training goal is to control the membrane potential of output neuron A. Conversely, the goal is to enhance the membrane potential of the output neuron.
 
 Input encoding: SNN treats input information as nerve impulses, so we must encode the numerical value into the input stimulus in time units. The Gaussian function is used as the encoding function here. For each input value, each Gaussian neuron is a Gaussian function separated by a small distance.
-![image](https://github.com/praveentya/SNN-for-Sleep-apnea-detection/assets/48126236/ebecb679-8141-45bc-ad4c-f3813c715962)
+![image](https://github.com/praveentya/SNN-for-Sleep-apnea-detection/assets/48126236/51f276bf-5552-47a2-b06c-0c9b8f4441f4)
+
+
