@@ -42,7 +42,7 @@ for fn in up.keys():
   print('User up files "{name}" with length {length} bytes'.format (
    name=fn, length=len(up[fn])))
   import io
-data=pd.read_csv(io.StringIO(up['AX_1.csv'].decode('utf-8')))
+data=pd.read_csv(io.StringIO(up['file.csv'].decode('utf-8')))
 #data.tail()
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
@@ -88,7 +88,7 @@ def K_res(t, t_i):
   return response
 
 #Model parameters
-iterations = 20
+iterations = 40
 num_class = 2
 V = np.zeros((num_class, 100)) # potential of each output neuron
 V_rest = 0
