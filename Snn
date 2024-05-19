@@ -217,5 +217,142 @@ def train():
         train_predict[train_sample] = pred_class
       acc = accuracy_score(y_train, train_predict)
       print('Training accuaracy at iteration {}: {}'.format(str(iterate+1), acc))
-
 train()
+# to make the confusion matrix
+train_predict = np.zeros(y_train.shape)
+val_predict = np.zeros(y_valid.shape)
+from sklearn.metrics import confusion_matrix
+train_conf_matrix = confusion_matrix(y_train, train_predict)
+print(train_conf_matrix)
+val_conf_matrix = confusion_matrix(y_valid, val_predict)
+print(val_conf_matrix)
+
+# to upload the withheld data
+# test data has the same format as your training/validation data
+# Preprocess the test data similarly to the training/validation data
+up = files.upload() # for validation datasets
+if len(up) > 0:
+    for fn in up.keys():
+        print('User uploaded file "{name}" with length {length} bytes'.format(name=fn, length=len(up[fn])))
+        import io
+        test_data = pd.read_csv(io.StringIO(up[fn].decode('utf-8')))
+
+def gauss_response(inputs):
+    for i in range(num_features):
+        input_index = int(round(inputs[i]))
+
+        if 0 <= input_index < gauss_recpt_field.shape[1]:
+            for j in range(gauss_neuron):
+                spike_time[j, i] = gauss_recpt_field[j, input_index]
+        else:
+            pass
+    spikes = []
+    for i in range(spike_time.shape[1]):
+        spikes.extend(spike_time[:, i])
+    return np.array(spikes)
+
+X_test = test_data.iloc[:, 1:3].values
+y_test = test_data.iloc[:, 0].values
+labelencoder_X_1 = LabelEncoder()
+y_test = labelencoder_X_1.fit_transform(y_test)
+X_test_normalized = scaler.transform(X_test)
+# Convert test data to spike representations using your 'gauss_response' function
+input_spike_test = np.zeros((X_test_normalized.shape[0], gauss_neurons))
+for i in range(X_test_normalized.shape[0]):
+    input_spike_test[i, :] = gauss_response(X_test_normalized[i, :])
+
+input_spike_test[input_spike_test < 0.1] = 0
+input_spike_test = np.around(100 * (1 - input_spike_test))
+input_spike_test[input_spike_test == 0] = 1
+# Make predictions on the test data
+test_predictions = np.zeros(y_test.shape)
+for sample in range(input_spike_test.shape[0]):
+    t_max = T * np.ones((num_class), dtype=np.int8)
+    max_state = np.zeros((num_class))
+    for t in range(T):
+        for neuron in range(gauss_neurons):
+            Response[neuron] = K_res(t, input_spike_test[sample, neuron])
+
+        for out_id in range(num_class):
+            V[out_id, t] = np.matmul(Response, weight[:, out_id]) + V_rest
+
+    for out_id in range(num_class):
+        for timing in range(T):
+            if V[out_id, timing] >= threshold:
+                t_max[out_id] = timing
+                max_state[out_id] = V[out_id, timing]
+                break
+
+        if t_max[out_id] < T:
+            V[out_id, t_max[out_id]:] = V[out_id, t_max[out_id]] * np.exp(
+                (time[t_max[out_id]:] - time[t_max[out_id]]) / tou_m)
+
+    pred_class = np.argmin(t_max)
+    test_predictions[sample] = pred_class
+
+# Calculate accuracy on the test set
+test_accuracy = accuracy_score(y_test, test_predictions)
+print("Test Accuracy:", test_accuracy)
+# confusion matrix of withheld data
+conf_matrix = confusion_matrix(y_test, test_predictions)
+print(conf_matrix)
+import seaborn as sns
+# Plot confusion matrix as heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
+plt.xlabel('Predicted labels')
+plt.ylabel('True labels')
+plt.title('Confusion Matrix')
+plt.show()
+
+# k-fold validation 
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import accuracy_score
+X_test = test_data.iloc[:, 1:3].values
+y_test = test_data.iloc[:, 0].values
+# Encode categorical labels if necessary
+labelencoder_X_1 = LabelEncoder()
+y_test = labelencoder_X_1.fit_transform(y_test)
+X_test_normalized = scaler.transform(X_test)
+
+num_folds = 10
+kf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=42)
+accuracy_scores = []
+#Iterate over each fold
+for fold, (train_index, test_index) in enumerate(kf.split(X, y), 1):
+    print(f"Fold {fold}:")
+    # Split data into train and test sets for this fold
+    x_test, y_test = input_spike[test_index], y[test_index]
+    # Make predictions on the test data
+    test_predictions = np.zeros(y_test.shape)
+    for sample in range(x_test.shape[0]):
+        t_max = T * np.ones((num_class), dtype=np.int8)
+        max_state = np.zeros((num_class))
+        for t in range(T):
+            for neuron in range(gauss_neurons):
+                Response[neuron] = K_res(t, x_test[sample, neuron])
+
+            for out_id in range(num_class):
+                V[out_id, t] = np.matmul(Response, weight[:, out_id]) + V_rest
+
+        for out_id in range(num_class):
+            for timing in range(T):
+                if V[out_id, timing] >= threshold:
+                    t_max[out_id] = timing
+                    max_state[out_id] = V[out_id, timing]
+                    break
+
+            if t_max[out_id] < T:
+                V[out_id, t_max[out_id]:] = V[out_id, t_max[out_id]] * np.exp(
+                    (time[t_max[out_id]:] - time[t_max[out_id]]) / tou_m)
+
+        pred_class = np.argmin(t_max)
+        test_predictions[sample] = pred_class
+
+    # Calculate accuracy for this fold and append to accuracy_scores list
+    accuracy = accuracy_score(y_test, test_predictions)
+    accuracy_scores.append(accuracy)
+    print("Accuracy for Fold", fold, ":", accuracy)
+# calculate the average accuracy
+avg_accuracy = sum(accuracy_scores) / len(accuracy_scores)
+print("Average Accuracy:", avg_accuracy)
